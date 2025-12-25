@@ -42,6 +42,10 @@ def render_sidebar():
         else: 
             current_file_path = os.path.join(c.HISTORY_DIR, "chat_history.json")  # 如果文件夹内还没json聊天文件，比如 all_files =[] ，就用默认的
 
+        # 🌟将局部变量挂载到全局 session_state，让 main.py 能读取到！
+        st.session_state.current_file_path = current_file_path 
+
+
         # ============= 加载逻辑 (核心) ============= 
         # 判定条件：
         #   1. 文件切换： session_state 里存的文件名 和 当前选的不一样，说明用户刚切了存档
