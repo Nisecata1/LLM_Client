@@ -5,7 +5,7 @@ import streamlit as st
 
 # 自己的库
 import src.constants as const
-import src.storage_functions as storagef
+import src.app_base_functions as storagef
 
 
 # ======================== 侧边栏配置 =========================
@@ -40,7 +40,6 @@ def render_sidebar():
         else: 
             current_file_path = os.path.join(current_dir, const.DEFAULT_HISTORY_FILE_NAME)  # 如果文件夹内还没json聊天文件，比如 all_files =[] ，就用默认的
         
-        st.session_state.file_path = current_file_path  # 将局部变量挂载到全局 session_state，让 main.py 能读取到
         
         # =================== 存档加载逻辑 (防抖) ===================
         # 🔍 优化：逻辑清晰化，使用 session_state 里的标记位
@@ -53,6 +52,7 @@ def render_sidebar():
             st.session_state.file_path != current_file_path or  # 情况2：用户刚才点下拉框换了文件
             "meta" not in st.session_state                          # 情况3：元数据意外丢失（防御性编程）
         ):  
+            st.session_state.file_path = current_file_path  # 将局部变量挂载到全局 session_state，让 main.py 能读取到
             # 只有满足上面条件，才会去读 current_file_path （这是昂贵的 IO 操作）
             meta, msgs = storagef.load_history(current_file_path) # 解包赋值：把返回的两个值分别给两个变量
             # 更新后端 Session 状态 (真正的数据)
@@ -62,9 +62,10 @@ def render_sidebar():
             # 同步 UI：强制同步前端 UI 组件的状态，直接修改 key 对应的 Session State，这会强制输入框显示新的值
             st.session_state.ui_prompt = meta.get("system_prompt", const.DEFAULT_SYSTEM_PROMPT)
             # 更新模型显示，要确保模型在列表里
-            loaded_model = meta.get("model", const.MODEL_NAME_LIST[0])
-            st.session_state.ui_model = loaded_model if loaded_model in const.MODEL_NAME_LIST else const.MODEL_NAME_LIST[0]
-
+            if meta.get("model") in const.MODEL_NAME_LIST:
+                st.session_state.ui_model = meta.get("model")
+            else: 
+                st.session_state.ui_model = const.MODEL_NAME_LIST[0]
             st.toast(f"已加载存档: {selected_file}")
 
 
@@ -74,7 +75,17 @@ def render_sidebar():
 
         system_prompt = st.text_area("系统提示词", height=150, key="ui_prompt")  # 双向绑定：即赋值给变量，也更新 session_state 里的 ui_prompt
         selected_model = st.selectbox("选择模型", const.MODEL_NAME_LIST, key="ui_model") # 每次你修改 st.selectbox 的内容，脚本重跑，selected_model 变量就会拿到session里最新的值
-        
+        # 历史上下文滑块, key="ui_history_len" 会自动将值绑定到 st.session_state.ui_history_len
+        history_len = st.slider(
+            "⏳ 记忆窗口 (对话轮次)", 
+            min_value=1, 
+            max_value=60, 
+            value=10, 
+            step=1, 
+            key="ui_history_len",
+            help="决定要把最近多少轮聊天记录发送给 AI。数值越大越消耗 Token，但也越能记得上下文。"
+        )
+
         # 🛠️ 其他设置
         with st.expander("💎 Gemini 3 高级特性", expanded=True):
             # A. 思考等级 (Thinking Level)
@@ -84,13 +95,8 @@ def render_sidebar():
                 value="High (深思)",
                 help="High 模式会消耗更多 Token 进行深度推理"
             )
-            # 映射表：UI显示 -> API参数值
-            thinking_map = {
-                "Low (快)": "low", 
-                "Medium (平衡)": "medium", 
-                "High (深思)": "high"
-            }
-            
+            thinking_map = {"Low (快)": "low","Medium (平衡)": "medium", "High (深思)": "high"}  # 映射表：UI显示 -> API参数值
+
 
         # ================ 参数打包 (存入 Session 供 main.py 读取) ================
         # 一定要把这些新参数存进去，main.py 才能拿到
@@ -102,7 +108,8 @@ def render_sidebar():
             "system_prompt": system_prompt,  # 这里取到的就是 key="ui_prompt" 的最新值
             "model": selected_model,
             # 把高级参数也存进存档，这样下次加载存档时能恢复
-            "gemini_config": st.session_state.gemini_params 
+            "gemini_config": st.session_state.gemini_params,
+            "history_len": st.session_state.ui_history_len
         }
         st.markdown("---")
 

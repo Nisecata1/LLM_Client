@@ -1,12 +1,24 @@
 
 
 import json
+import datetime
 
 
 # 测试中
 # 这里包含真正的 Python 函数和给 AI 看的 JSON 定义
 
 # ================= 1. 真正的 Python 函数 (干活的) =================
+
+
+
+
+def get_current_time():
+    """获取当前系统时间"""
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+
+
 def web_search(query):
     """
     模拟联网搜索功能 (实际使用时可替换为 DuckDuckGo 或 Google API)
@@ -27,24 +39,38 @@ def web_search(query):
 # ================= 2. 工具映射表 (给代码用的) =================
 # 这是一个字典，让程序知道 AI 叫 "web_search" 时该跑哪个函数
 AVAILABLE_FUNCTIONS = {
+    "get_current_time": get_current_time,
     "web_search": web_search,
 }
 
 # ================= 3. 工具定义 Schema (给 AI 看的) =================
 # 这是传给 client.chat.completions.create 的 tools 参数
-TOOLS_SCHEMA = [
-    {
-        "type": "function",
-        "function": {
-            "name": "web_search",  # 名称，必须和上面的函数名对应
-            "description": "当用户询问实时信息、新闻或我不具备的知识时使用。搜索互联网获取信息。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string","description": "针对搜索引擎优化的搜索关键词"}
+def get_tools_schema():
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_time",  # 工具名称，必须和上面的函数名对应
+                "description": "Get the current real-world date and time.",  # 工具描述
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": [],
                 },
-                "required": ["query"]
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "web_search",  # 名称，必须和上面的函数名对应
+                "description": "当用户询问实时信息、新闻或我不具备的知识时使用。搜索互联网获取信息。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string","description": "针对搜索引擎优化的搜索关键词"}
+                    },
+                    "required": ["query"]
+                }
             }
         }
-    }
-]
+    ]

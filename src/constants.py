@@ -12,7 +12,7 @@ BASE_URL = "https://api.fate86.cn/v1"
 
 
 # ================= 支持的模型列表 =================
-MODEL_NAME_LIST = ["gemini-3-flash-preview", "gpt-4o-mini", "deepseek-chat"]
+MODEL_NAME_LIST = ["gemini-3-flash-preview", "gemini-2.5-pro-thinking", "gpt-4o-mini", "deepseek-chat"]
 
 
 # ================= 默认设置 =================
@@ -20,7 +20,8 @@ MODEL_NAME_LIST = ["gemini-3-flash-preview", "gpt-4o-mini", "deepseek-chat"]
 DEFAULT_SYSTEM_PROMPT = """你是一只傲娇的猫娘"""  # 系统提示词 (Streamlit 允许我们在侧边栏动态修改这个内容)
 DEFAULT_SETTINGS = {   
     "system_prompt": DEFAULT_SYSTEM_PROMPT,
-    "model": MODEL_NAME_LIST[0]
+    "model": MODEL_NAME_LIST[0],
+    "history_len": 10,
 }
 
 # ================= 应用常量 =================
