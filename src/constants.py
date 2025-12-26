@@ -8,11 +8,13 @@
 
 # ================= 配置区域 ====================
 API_KEY = "sk-o1QYDOlis0gd3xDmpKyoyuCscLXDxclPDaM450tzL17XIFJy"
+# API_KEY = "sk-3tNsGmdWcoa95je3fCQxWa5umbSecN6AZOFoK8nbX0fgp5xh"  # default
+# API_KEY = "sk-rtN1YRXssJKv3QtHTnAE4lpZY8AkL6bCWrpK5FsfZ9KvOGVo"  # 国产
 BASE_URL = "https://api.fate86.cn/v1"
 
 
 # ================= 支持的模型列表 =================
-MODEL_NAME_LIST = ["gemini-3-flash-preview", "gemini-2.5-pro-thinking", "gpt-4o-mini", "deepseek-chat"]
+MODEL_NAME_LIST = ["gemini-3-flash-preview", "gemini-2.5-pro-thinking", "deepseek-v3.2-thinking", "deepseek-chat"]
 
 
 # ================= 默认设置 =================
