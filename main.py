@@ -12,7 +12,7 @@ import src.tools_call_functions as tools    # 导入函数工具调用模块
 
 
 # ===================================架构逻辑===============================================
-# 使用 st.session_state 作为“数据总线”，在不同函数和组件间传递数据
+# 使用 st.session_state 作为“数据总线”，在不同函数和组件间传递数据，他在内存里，存活于整个 Streamlit 会话期间。
 # 在 Streamlit 中，跨文件/跨模块传递变量的最佳实践不是 return，而是直接读写 st.session_state。
 
 # UI 模块 (ui_components) 负责采集参数（用户选了什么）。
@@ -75,8 +75,8 @@ for i, msg in enumerate(st.session_state.messages):  # enumerate返回一个元�
 
 
 # ===================== 用户输入 =======================
-
-if user_input := st.chat_input("Shift+Enter 换行...输入你的问题..."):  # st.chat_input 类似于 input()，但它同时构建了整个 Web 的交互循环
+# st.chat_input 类似于 input()，但它同时构建了整个 Web 的交互循环
+if user_input := st.chat_input("Shift+Enter 换行...输入你的问题..."):  
     
     # --- 渲染用户输入进对话框 ---
     with st.chat_message("user"):
@@ -86,13 +86,17 @@ if user_input := st.chat_input("Shift+Enter 换行...输入你的问题..."):  #
     # --- 构造 messages (滑动窗口) ---
     # 系统提示词和历史消息都从 st.session_state 读取，这两个都在ui模块绑定
     sys_msg = {"role": "system", "content": st.session_state.ui_prompt}  # 取系统提示词
-    ctx_len = (st.session_state.ui_history_len)*2  # 乘以2是因为一轮对话包含用户和AI两条消息 
+    ctx_len = int(st.session_state.get("ui_history_len", 10))*2  # 乘以2是因为一轮对话包含用户和AI两条消息 
     recent_history = st.session_state.messages[-ctx_len:] 
     request_messages = [sys_msg] + recent_history  # 拼接: [系统提示词] + [最近历史]
 
 
-    # --- 准备参数 --- 
+    
+    # 打开一个助手消息的框框
     with st.chat_message("assistant"):
+
+
+        # --- 准备参数 --- 
         try:
             # 1. 获取ui模块获取的参数 (如果没初始化给个空字典)
             params = st.session_state.get("gemini_params", {})
@@ -137,9 +141,8 @@ if user_input := st.chat_input("Shift+Enter 换行...输入你的问题..."):  #
 
             # 4. 往 kwargs 注入 extra_body (只有当里面有内容时才注入)
             if extra_body["generationConfig"] or extra_body.get("tools"):
-                kwargs["extra_body"] = extra_body
-
-            # 最终参数kwargs构建完毕
+                kwargs["extra_body"] = extra_body  # 最终参数 kwargs 构建完毕
+            
             # --- 🔍 调试：打印最终发给 OpenAI SDK 的参数 ---
             # print(f"DEBUG kwargs: {json.dumps(kwargs, indent=2, ensure_ascii=False)}")
 
@@ -150,15 +153,18 @@ if user_input := st.chat_input("Shift+Enter 换行...输入你的问题..."):  #
             # [关键点1] 创建一个巨大的占位符，占据整个回复区域
             # 我们先在这个区域里疯狂输出流式内容
             # 如果后来发现需要调用工具，我们就把这个区域清空 (empty)，换成一个折叠框
-            main_placeholder = st.empty()
-            
+            # 创建占位符
+            main_placeholder = st.empty()        
+        
             # 缓冲区
             full_reasoning = ""
             full_content = ""
-            tool_calls_buffer = {} # 用于后台拼接碎片化的工具参数
+            tool_calls_buffer = {}  # 用于后台拼接碎片化的工具参数
+            final_response_content = "" # 最终要保存的内容
 
             # 1. 第一轮流式请求 (立刻开始，不等待)
-            stream = st.session_state.client.chat.completions.create(stream=True, **kwargs)
+            with st.status("AI 正在思考中..."):
+                stream = st.session_state.client.chat.completions.create(stream=True, **kwargs)
 
             # 在占位符里开辟一个临时的容器，用于实时渲染
             with main_placeholder.container():

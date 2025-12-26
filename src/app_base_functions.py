@@ -120,6 +120,33 @@ def delete_msg_callback(index):
         # 注意：这里不需要写 st.rerun()，因为 on_click 触发的回调完成后，Streamlit 会自动触发 rerun。
         st.toast("🗑️ 消息已删除")
     
+def on_param_change():
+    """
+    当任何 UI 组件发生变化时触发。
+    它负责：同步 UI 状态 -> Meta 数据 -> 写入硬盘
+    """
+    # 确保 Meta 数据同步
+    if "meta" in st.session_state:
+        # 将 session_state 里所有最新的 UI 值更新到内存的 meta 中
+        st.session_state.meta["system_prompt"] = st.session_state.ui_prompt
+        st.session_state.meta["model"] = st.session_state.ui_model
+        st.session_state.meta["history_len"] = st.session_state.ui_history_len
+        # 同步 Thinking Level (简化版)
+        # 逻辑：UI是 "High" -> API要是 "high" (转小写即可)
+        if "ui_thinking" in st.session_state:
+            val = st.session_state.ui_thinking.lower() 
+            st.session_state.meta["gemini_config"] = {"thinking_level": val}
+            st.session_state.gemini_params = {"thinking_level": val}
+
+        # 保存到硬盘
+        if "file_path" in st.session_state and st.session_state.file_path:
+            save_history(
+                st.session_state.meta, 
+                st.session_state.messages, 
+                st.session_state.file_path
+            )
+            st.toast("配置已自动保存 💾")
+
 
 def archive_current_chat(path):
     """
