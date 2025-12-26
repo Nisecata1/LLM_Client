@@ -5,7 +5,7 @@ import streamlit as st
 
 # 自己的库
 import src.constants as c
-import src.storage_files_option_function as f
+import src.file_store_load_functions as f
 
 
 def render_sidebar():
@@ -24,30 +24,23 @@ def render_sidebar():
                 st.rerun()  # 刷新页面
 
         # =================== 存档切换 ===================
-        st.header("📂 存档与记忆")  # 大标题
-
-        # 扫描
+        st.header("📂 存档与记忆")
+        # 扫描并排序
         if os.path.exists(c.HISTORY_DIR):  # 扫描文件夹 c.HISTORY_DIR ，列出所有 json 文件，排序并用一个列表对象 all_files 存起来
             all_files = [f for f in os.listdir(c.HISTORY_DIR) if f.endswith('.json')]
-            # 排序
             all_files.sort(key=lambda x: os.path.getmtime(os.path.join(c.HISTORY_DIR, x)), reverse=True)  # 排序：利用 os.path.getmtime（获取文件修改时间）配合 sort，把最近聊过天的档案排在最前面
         else:
             all_files = []
-        # 选择框
-        selected_file = st.selectbox("选择历史存档", all_files, index=0 if all_files else None)  #st.selectbox创建下拉选择框，用一个 selected_file 对象接收用户选择（默认为 index=0 即最新的那个文件）
+        selected_file = st.selectbox("选择历史存档", all_files, index=0 if all_files else None)  # st.selectbox创建下拉选择框，用一个 selected_file 对象接收用户选择（默认为 index=0 即最新的那个文件）
 
-        # 构造当前选中的完整路径，利用一个 current_file_path 对象接收
+        # 构造当前选中的完整路径，用 current_file_path 对象接收
         if selected_file:
             current_file_path = os.path.join(c.HISTORY_DIR, selected_file)  # os.path.join方法用于拼接完整路径
         else: 
             current_file_path = os.path.join(c.HISTORY_DIR, "chat_history.json")  # 如果文件夹内还没json聊天文件，比如 all_files =[] ，就用默认的
-
-        # 🌟将局部变量挂载到全局 session_state，让 main.py 能读取到！
+        # 🌟将局部变量挂载到全局 session_state，让 main.py 能读取到
         st.session_state.current_file_path = current_file_path 
-
-
-        # ============= 加载逻辑 (核心) ============= 
-        # 判定条件：
+        # 存档加载逻辑，核心判定条件：  
         #   1. 文件切换： session_state 里存的文件名 和 当前选的不一样，说明用户刚切了存档
         #   2. 第一次初始化：session里还没初始化过meta ()
         # 这行 IF 语句是在做“防抖”和“状态判定”
@@ -55,16 +48,13 @@ def render_sidebar():
             "current_file" not in st.session_state or          # 情况1：程序刚启动，还没存过文件名
             st.session_state.current_file != selected_file or  # 情况2：用户刚才点下拉框换了文件
             "current_meta" not in st.session_state             # 情况3：元数据意外丢失（防御性编程）
-        ):  # 只有满足上面条件，才会去读硬盘（这是昂贵的 IO 操作）
-            msgs, meta = f.load_history(current_file_path) # 解包赋值：把返回的两个值分别给两个变量
-            # 更新 Session 状态 (后端数据)
+        ):  # 只有满足上面条件，才会去读 current_file_path （这是昂贵的 IO 操作）
+            meta, msgs = f.load_history(current_file_path) # 解包赋值：把返回的两个值分别给两个变量
+            # 更新 Session 状态 (真正的后端数据)
             st.session_state.messages = msgs
             st.session_state.current_meta = meta # 这里给 current_meta 赋值了！
             st.session_state.current_file = selected_file
-
-            # 更新 Session 状态 (前端 UI 组件的状态)
-            # 强制同步前端 UI 组件的状态，因为可能不更新，即输入框显示的还是旧值
-            # 直接修改 key 对应的 Session State，这会强制输入框显示新的值
+            # 更新 Session 状态 (前端 UI 组件的状态)：强制同步前端 UI 组件的状态，直接修改 key 对应的 Session State，这会强制输入框显示新的值
             st.session_state.ui_prompt = meta.get("system_prompt", c.DEFAULT_SYSTEM_PROMPT)
             st.session_state.ui_temperature = float(meta.get("temperature", 1.0))
             # 更新模型显示，这个稍微麻烦点，要确保模型在列表里
@@ -75,25 +65,58 @@ def render_sidebar():
 
             st.toast(f"已加载存档: {selected_file}")
 
-        # =======================================
-        # ============ 动态人设与参数 ============
-        # =======================================
-        # 现在的逻辑是：输入框的默认值 = 从 json 聊天文件里读出来的 meta 值
-        st.subheader("🧠 模型、人设参数 (跟随存档)")
 
-        # 这里的 key="ui_prompt" 必须在 button 之前定义，这正是导致报错的原因
-        # 所以我们不能在 button 的 if 块里去修改它，而要用回调
-        system_prompt = st.text_area("系统提示词", height=150, key="ui_prompt")  # Streamlit 会自动从 st.session_state.ui_prompt 里取值显示
-        selected_model = st.selectbox("选择模型", c.MODEL_NAME_LIST, key="ui_model") # 每次你修改st.selectbox的内容，脚本重跑，selected_model 变量就会拿到最新的值
-        temperature = st.slider("随机性 (Temperature)", 0.0, 2.0, key="ui_temperature")
+
+        # ============ 系统提示词与模型 ============
+        st.subheader("🧠 系统提示词与模型 (跟随存档)")
+
+        system_prompt = st.text_area("系统提示词", height=150, key="ui_prompt")  # 这就是双向绑定，即时更新 session_state 里的 ui_prompt
+        selected_model = st.selectbox("选择模型", c.MODEL_NAME_LIST, key="ui_model") # 每次你修改st.selectbox的内容，脚本重跑，selected_model 变量就会拿到session里最新的值
         
-        # 实时更新 Session 中的 Meta (以便后续保存): 当用户在网页上修改输入框时，上面的 key 变量会自动变，我们只需要把它存回 current_meta
+        
+        
+        # 🛠️ 其他设置
+        with st.expander("💎 Gemini 3 高级特性", expanded=True):
+            # A. 思考等级 (Thinking Level)
+            thinking_option = st.select_slider(
+                "🤔 思考强度 (Thinking Level)",
+                options=["Low (快)", "Medium (平衡)", "High (深思)"],
+                value="Medium (平衡)",
+                help="High 模式会消耗更多 Token 进行深度推理"
+            )
+            # 映射表：UI显示 -> API参数值
+            thinking_map = {
+                "Low (快)": "low", 
+                "Medium (平衡)": "medium", 
+                "High (深思)": "high"
+            }
+            
+            # B. Google Search 开关
+            use_search = st.toggle("🌍 启用 Google 联网 (Search)", value=False)
+            
+            # C. 安全限制开关
+            disable_safety = st.toggle("☠️ 解除安全审查 (Block None)", value=False)
+
+        # 4. 参数打包 (存入 Session 供 main.py 读取)
+        # 注意：一定要把这些新参数存进去，main.py 才能拿到！
+        st.session_state.gemini_params = {
+            "thinking_level": thinking_map[thinking_option],
+            "use_search": use_search,
+            "disable_safety": disable_safety
+        }
+
+        # 实时更新 session_state 中的 Meta (以便后续保存)
+        # 当用户在网页上修改输入框时，上面的 key 变量会自动变，我们只需要把它存回 current_meta
         st.session_state.current_meta = {
             "system_prompt": system_prompt,  # 这里取到的就是 key="ui_prompt" 的最新值
             "model": selected_model,
-            "temperature": temperature
+            # 把高级参数也存进存档，这样下次加载存档时能恢复
+            "gemini_config": st.session_state.gemini_params 
         }
         st.markdown("---")
+
+
+
 
         # ============ 归档功能的正确写法 (Callback) ============
 

@@ -53,7 +53,7 @@ def save_app_config(new_dir):
 
 def load_history(file_path):  
     """
-    该函数拿取指定 file_path 文件中的历史记录，返回一个元组 (元数据字典meta，消息列表message)
+    该函数打开 file_path 文件并读取，返回一个元组 (元数据字典meta，消息列表message)
     读取历史记录,支持两种格式：
     1. 旧格式 (List): [{"role":...}, ...]  // list相当于c里的数组，数组元素为dict
     2. 新格式 (Dict): {"meta": {...}, "messages": [...]}
@@ -64,15 +64,14 @@ def load_history(file_path):
                 data = json.load(f)  # 读取并转成JSON给到data对象
             # 判断格式
             if isinstance(data, dict) and "messages" in data:
-                return data["messages"], data.get("meta", c.DEFAULT_SETTINGS)  # 返回消息列表和元数据（实际上是打包好的元组）
-                # 如果字典 data 里面有 "meta" 这个键，它就返回 data["meta"] 对应的值。没有则返回默认设置DEFAULT_SETTINGS
+                return data.get("meta", c.DEFAULT_SETTINGS), data["messages"] # 返回消息列表和元数据（实际上是打包好的元组）
             elif isinstance(data, list):  # 旧格式 (纯列表)
-                return data, c.DEFAULT_SETTINGS  # 返回消息列表和默认设置（也是一个打包好的元组）
+                return c.DEFAULT_SETTINGS, data  # 返回默认设置和消息列表（也是一个打包好的元组）
         except Exception as e:
             st.error(f"读取记录出错: {e}")
-            return [], c.DEFAULT_SETTINGS
+            return c.DEFAULT_SETTINGS, []
     # 文件不存在，返回空
-    return [], c.DEFAULT_SETTINGS
+    return c.DEFAULT_SETTINGS, []
 
 def save_history(meta, messages, file_path):
     """
