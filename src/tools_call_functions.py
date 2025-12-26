@@ -36,15 +36,12 @@ TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
-            "name": "web_search",  # 必须和上面的函数名对应
+            "name": "web_search",  # 名称，必须和上面的函数名对应
             "description": "当用户询问实时信息、新闻或我不具备的知识时使用。搜索互联网获取信息。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "针对搜索引擎优化的搜索关键词"
-                    }
+                    "query": {"type": "string","description": "针对搜索引擎优化的搜索关键词"}
                 },
                 "required": ["query"]
             }
