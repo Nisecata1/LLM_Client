@@ -34,38 +34,39 @@ ui.render_sidebar()  # 渲染侧边栏组件，这个函数定义在 ui_componen
 if "client" not in st.session_state:  
     st.session_state.client = OpenAI(api_key=const.API_KEY, base_url=const.BASE_URL)
 
-# ================= 渲染历史消息 (带编辑/删除功能) =================
+# ================= 渲染历史消息 =================
 # 使用 enumerate 获取索引 i，这是精确定位消息的关键
-for i, msg in enumerate(st.session_state.messages):  # enumerate返回一个元组{当前下标，消息列表}，messages 已经在 ui 模块里初始化过了
-    with st.chat_message(msg["role"]):  # 直接通过 msg["role"] 访问msg，而不是写 messages[i]["role"]
+# enumerate返回一个元组{当前下标，消息列表}，messages 已经在 ui 模块里初始化过了
+# 每条消息还会伴随渲染一些功能按钮
+for i, msg in enumerate(st.session_state.messages):  
+    # with 创建该消息的一个上下文环境，里面的组件渲染在 <aside> 侧边栏里
+    with st.chat_message(msg["role"]):  # 通过 msg["role"] 访问msg，而不是写 messages[i]["role"]
         # 1. 显示消息内容
         st.markdown(msg["content"])
 
-        # 2. 添加管理工具
+        # 2. 添加一个管理工具上下文环境
         with st.popover("🔧", help="管理这条消息"):  # popover (气泡菜单) , 仅在鼠标悬停或点击时展开，保持界面整洁
             
-            # --- 功能 A: 编辑模式 ---
-            # 这里的 key 使用 f-string 动态生成，保证唯一性
+            # --- 编辑 ---
             new_content = st.text_area( "编辑内容", value=msg["content"], height=150, key=f"edit_text_{i}")
             
             col_edit, col_del, col_cancel = st.columns([1, 1, 1])  # 分割三列，准备放按钮
             # 保存按钮
-            if col_edit.button("💾 保存", key=f"save_btn_{i}"):  # 该方法返回ture or false
-                # 1. 更新内存
-                st.session_state.messages[i]["content"] = new_content
-                # 2. 写入硬盘 (调用你的 functions 库)，注意该函数是覆盖写，所以需要meta和messages一起写
+            if col_edit.button("💾 保存", key=f"save_btn_{i}"):
+                st.session_state.messages[i]["content"] = new_content  # 更新内存消息中的某一条
+                # 写入硬盘，注意该函数是覆盖写，所以要一起写
                 storagef.save_history(st.session_state.meta, st.session_state.messages, st.session_state.file_path)
                 st.rerun()
 
-            # --- 删除按钮 (修改为 Callback 模式) ---
+            # --- 删除按钮 (Callback) ---
+            # 这里的 key 使用 f-string 动态生成，保证唯一性
             col_del.button( 
                 "🗑️ 删除", 
-                # key 的作用：动态生成唯一 ID。
-                key=f"del_btn_{i}",  # {i} 保证了在循环中，每个按钮在 Session State 中都有独立的槽位。
+                key=f"del_btn_{i}",  # 该句保证了在循环中，每个按钮在 内存（即会话Session State） 中都有一个独立的指针key指向，方便后续操作
                 type="primary",   # 按钮颜色
-                # 给按钮绑定回调函数，当用户点击，Streamlit 暂停脚本，先去执行回调函数。
+                # 当用户点击，Streamlit 暂停脚本，先去执行回调函数。
                 # 关于参数：st.button给回调函数传参实际上是把传入的元组解引用并传入，当它调用回调函数时，它会执行类似 callback(*args) 的操作，所以args必须是元组形式(即使回调函数只有一个形参),元组也是一个可迭代对象
-                on_click=storagef.delete_msg_callback, args=(i,)  
+                on_click=storagef.delete_msg_callback, args=(i,)  # 绑定回调函数
             )
 
             # --- 取消按钮 ---
@@ -113,7 +114,7 @@ if user_input := st.chat_input("Shift+Enter 换行...输入你的问题..."):
                 "tool_choice": "auto"
             }
 
-            # 3. 构造造 extra_body (Gemini 特有配置，直接透传给 Google REST API)
+            # 3. 构造 extra_body (字典结构，存Gemini 特有配置，直接透传给 Google REST API)
             # 【注意】因为是透传，Key 必须符合 Google REST JSON 规范 (驼峰命名)
             extra_body = {
                 "generationConfig": {},
@@ -122,6 +123,7 @@ if user_input := st.chat_input("Shift+Enter 换行...输入你的问题..."):
 
             # 处理 Thinking Level，使用驼峰命名 thinkingConfig
             if "thinking_level" in params:
+                # 在 extra_body 中的 generationConfig 下添加 thinkingConfig 字段
                 extra_body["generationConfig"]["thinkingConfig"] = {
                     "includeThoughts": True,                    # (可选) 某些 Proxy/Client 需要这个来强制返回思考过程
                     "thinking_level": params["thinking_level"]  # 值通常是小写: low/medium/high
@@ -251,7 +253,7 @@ if user_input := st.chat_input("Shift+Enter 换行...输入你的问题..."):
                     except:
                         args = {} # 解析失败容错
                     
-                    # 运行函数
+                    # 查找并运行函数
                     if func_name in tools.AVAILABLE_FUNCTIONS:
                         tool_result = tools.AVAILABLE_FUNCTIONS[func_name](**args)
                     else:
