@@ -1,11 +1,18 @@
-
-import time
 import json
 import os
+import base64
 import streamlit as st
 
 # 自己的库
 import src.constants as const  # 导入全局常量模块
+
+
+# ==================== 调试日志函数 ====================
+def debug_log(message):
+    """把日志同时打在终端和网页侧边栏，防走丢"""
+    print(f"🕵️ [DEBUG] {message}")
+    # 也可以选择显示在网页上方便看
+    # st.toast(message) 
 
 
 # =============== 文件操作函数定义区 ===============
@@ -84,15 +91,27 @@ def load_history(file_path):
         return const.DEFAULT_SETTINGS, []
 
 
-def save_history(meta, messages, file_path):
+def save_history(meta=None, messages=None, file_path=None):
     """
-    将传入的meta，messages，打包保存到指定的文件
+    将传入的meta，messages，打包保存到指定的file_path路径，三个参数的默认值都从内存session拿
     meta: 元数据字典 (人设、温度、模型)
     messages: 消息列表
-    file_path: 保存路径
+    file_path: 要存入的json文件路径
     """
-    # 构造新结构,包含传入的 meta 和 messages
+
+    # 2. 函数体内部：这时候函数被调用了，session_state 肯定已经准备好了
+    if meta is None:
+        # 使用 .get() 避免如果 session_state 里没有 meta 时再次报错
+        meta = st.session_state.get("meta", {}) 
+    if messages is None:
+        messages = st.session_state.get("messages", [])
+    if file_path is None:
+        file_path = st.session_state.get("file_path", "")
+
+
+    # 构造新结构, 包含 meta 和 messages
     data = {"meta": meta,"messages": messages}
+
     try:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'w', encoding='utf-8') as f:  # 打开file_path文件
@@ -120,6 +139,46 @@ def delete_msg_callback(index):
         # 注意：这里不需要写 st.rerun()，因为 on_click 触发的回调完成后，Streamlit 会自动触发 rerun。
         st.toast("🗑️ 消息已删除")
     
+
+
+def sync_ui_to_meta():
+    """
+    只更新内存！将 UI 组件的值同步到 st.session_state.meta 中。
+    不涉及任何硬盘读写。
+    """
+    if "meta" not in st.session_state: return
+
+    # A. 基础参数
+    if "ui_prompt" in st.session_state:
+        st.session_state.meta["system_prompt"] = st.session_state.ui_prompt
+    if "ui_history_len" in st.session_state:
+        st.session_state.meta["history_len"] = st.session_state.ui_history_len
+    
+    # B. Thinking Level (UI -> API)
+    if "ui_thinking" in st.session_state:
+        val = st.session_state.ui_thinking.lower()
+        st.session_state.meta["gemini_config"] = {"thinking_level": val}
+        # 同时更新给 main.py 用的 params
+        st.session_state.gemini_params = {"thinking_level": val}
+
+
+def save_current_context_to_disk():
+    """
+    【手动/自动触发】将当前的 Meta 和 Messages 写入硬盘
+    """
+    if "file_path" in st.session_state and st.session_state.file_path:
+        # 1. 保存前最后确认一次内存是最新的
+        sync_ui_to_meta() 
+        
+        # 2. 写硬盘
+        save_history(
+            st.session_state.meta, 
+            st.session_state.messages, 
+            st.session_state.file_path
+        )
+        st.toast(f"Saved: {os.path.basename(st.session_state.file_path)}", icon="💾")
+
+
 def on_param_change():
     """
     当任何 UI 组件发生变化时触发。
@@ -179,3 +238,18 @@ def archive_current_chat(path):
     new_default_path = os.path.join(const.DEFAULT_BASE_HISTORY_DIR, "chat_history.json")
     save_history(const.DEFAULT_SETTINGS, [], new_default_path)
         
+
+
+def encode_image_to_base64(uploaded_file):
+    """将 Streamlit 的上传对象转换为 Base64 字符串"""
+    bytes_data = uploaded_file.getvalue()
+    base64_str = base64.b64encode(bytes_data).decode('utf-8')
+    # 根据文件类型自动判断前缀
+    mime_type = uploaded_file.type
+    return f"data:{mime_type};base64,{base64_str}"
+
+
+
+
+
+
