@@ -2,11 +2,28 @@ import json
 from openai import OpenAI
 
 import streamlit as st
-import src.tools_call_functions as tools
+import src.model_tools_call_functions as tools
 import src.constants as const               # 导入全局常量模块
 import src.storage_module as storage   # 导入文件操作函数模块
 
 # 负责聊天相关的逻辑:渲染消息、构建参数、发送请求等等
+
+
+# 1. 强制初始化 Session State (解决第一次打开没参数、没输入框的问题)
+def init_session():
+    if "init_done" not in st.session_state:
+        # 给所有关键 Key 赋默认值
+        st.session_state.messages = []
+        st.session_state.meta = const.DEFAULT_SETTINGS
+        st.session_state.ui_prompt = const.DEFAULT_SYSTEM_PROMPT
+        st.session_state.ui_model = const.MODEL_NAME_LIST[0]
+        st.session_state.ui_history_len = 10
+        st.session_state.gemini_params = {"thinking_level": "high"}
+        
+        # 标记初始化完成
+        st.session_state.init_done = True
+        storage.debug_log("✅ Session State 初始化完成")
+
 
 
 def render_history_timeline():
@@ -77,7 +94,6 @@ def render_history_timeline():
                 # if col_cancel.button("✖️ 取消", key=f"cancel_btn_{i}"):
                 #     st.rerun()  # 这里的 rerun 会让 popover 收起，且重置 text_area 的内容
         
-  
 
 
 def initial_client(): 
@@ -86,7 +102,7 @@ def initial_client():
     '''
     if "client" not in st.session_state:  # 初始化 Client（如果不在内存）
         st.session_state.client = OpenAI(api_key=const.API_KEY, base_url=const.BASE_URL)
-    storage.debug_log("初始化client完成")
+    storage.debug_log("内存 client 初始化完成")
 
 
 def build_request_messages():
@@ -106,6 +122,7 @@ def build_api_params(request_messages):
     """
     request_messages: 要发送的历史消息上下文
     该函数负责构建 OpenAI SDK 需要的所有参数(基础参数、工具定义、模型特有参数等等)，并包含request_messages
+    包含参数透传参数
     """
     # 1. 获取ui模块获取的参数 (如果没初始化给个空字典)
     params = st.session_state.get("gemini_params", {})
@@ -126,41 +143,51 @@ def build_api_params(request_messages):
         kwargs["tools"] = tool_schema
         kwargs["tool_choice"] = "auto"
 
-    # 3. 构造 extra_body (字典结构，存Gemini 特有配置，直接透传给 Google REST API)
-    # 【注意】因为是透传，Key 必须符合 Google REST JSON 规范 (驼峰命名)
+
+    # --- Gemini 特有配置 (通过 extra_body 透传) ---
+    # 构造 extra_body (字典结构，存Gemini 特有配置，直接透传给 Google REST API)，因为是透传，Key 必须符合 Google 规范
     extra_body = {
         "generationConfig": {},
-        # "tools": [] # 如果后续有联网功能，初始化这个列表
+        "tools": [] # 这里是 Google 原生工具列表，如果后续有联网功能，初始化这个列表
     }
 
+
+    # A. 思考模式 (Thinking Config)、
     # 处理 Thinking Level，使用驼峰命名 thinkingConfig
     if "thinking_level" in params:
-        # 在 extra_body 中的 generationConfig 下添加 thinkingConfig 字段
+        level_upper = params["thinking_level"].upper()
+
         extra_body["generationConfig"]["thinkingConfig"] = {
-            "includeThoughts": True,                    # (可选) 某些 Proxy/Client 需要这个来强制返回思考过程
-            "thinking_level": params["thinking_level"]  # 值通常是小写: low/medium/high
+            "includeThoughts": True,        # 保持 True，许多中转适配器需要此字段，某些 Proxy/Client 需要这个来强制返回思考过程
+            "thinking_level": level_upper   # 大写
         }
+    # B. 图片分辨率 (Media Resolution) - 对应您 snippet 中的 media_resolution
+    # 强制开启高分辨率处理，这对识别设计图/风景照细节至关重要
+    extra_body["generationConfig"]["mediaResolution"] = "MEDIA_RESOLUTION_HIGH"
 
-    # (预留) 处理 Google Search
-    if params.get("use_search"):
-        # Google Search 作为 Gemini 原生工具通过 extra_body 传入
-        extra_body["tools"] = [{
-            "googleSearchRetrieval": {
-                "dynamicRetrievalConfig": {
-                    "mode": "dynamic",
-                    "dynamicThreshold": 0.3
-                }
-            }
-        }]
+    # C. Google Search (联网搜索)
+    # 修正：对照 snippet，现在的标准写法是 googleSearch: {} (空对象)，而不是之前的 dynamicRetrievalConfig
+    if params.get("use_search", False): # 暂时预留，如果 UI 里加了开关
+        extra_body["tools"].append({
+            "googleSearch": {} 
+        })
 
-    # 4. 往 kwargs 注入 extra_body (只有当里面有内容时才注入)
-    if extra_body["generationConfig"] or extra_body.get("tools"):
+    # 往 kwargs 注入 extra_body , 只有当 extra_body 确实有内容时才注入，避免空对象导致报错
+    # 检查 generationConfig 是否为空，以及 tools 是否为空
+    has_config = bool(extra_body["generationConfig"])
+    has_tools = bool(extra_body["tools"])
+
+    if has_config or has_tools:
+        # 如果没有 tools，删除该 key，防止发一个空列表报错
+        if not has_tools:
+            del extra_body["tools"]
         kwargs["extra_body"] = extra_body  # 最终参数 kwargs 构建完毕
     
     # --- 🔍 调试：打印最终发给 OpenAI SDK 的参数 ---
     # print(f"DEBUG kwargs: {json.dumps(kwargs, indent=2, ensure_ascii=False)}")
 
     return kwargs
+
 
 
 def stream_first_response(client, api_kwargs, main_placeholder):

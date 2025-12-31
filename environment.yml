@@ -1,0 +1,16 @@
+name: ai_assistant
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+    - streamlit>=1.28.0
+    - fastapi>=0.104.0
+    - uvicorn>=0.24.0
+    - openai>=1.12.0
+    - google-generativeai>=0.3.0
+    - pydantic>=2.0.0
+    - python-multipart>=0.0.6
+    - python-dotenv>=1.0.0

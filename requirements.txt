@@ -1,0 +1,57 @@
+We are given a list of dependencies and a suggested edit. The task is to apply the suggested edit to the previous code.
+ The suggested edit is a complete replacement of the previous code with a new version that has more detailed comments, version pinning, and some optional dependencies.
+ We will replace the entire content with the suggested edit.
+ However, note that the original code had some dependencies without version constraints and the suggested edit adds version constraints and splits into sections.
+ Also, the suggested edit includes some optional dependencies (watchdog) and test/code quality dependencies that were not in the original.
+ Since the instruction is to apply the suggested edit, we will do exactly that.```txt
+# ============================================
+# AI 助手项目 - 完整依赖列表
+# ============================================
+# 基于代码分析生成的依赖项
+# 最后更新: 2024年
+# ============================================
+
+# ================= 核心框架 =================
+# Streamlit - Web UI 框架 (main.py, src/ui_components.py)
+streamlit==1.28.0
+
+# FastAPI - 后端 API 框架 (backend/main.py, backend/tools_router.py)
+fastapi==0.104.0
+
+# Uvicorn - ASGI 服务器 (backend/main.py)
+uvicorn==0.24.0
+
+# ================= AI/ML 相关 =================
+# OpenAI 客户端库 - 用于调用 Gemini API (src/chat_logic.py)
+openai==1.12.0
+
+# Google Generative AI - Gemini API 客户端 (备用)
+google-generativeai==0.3.0
+
+# ================= 数据处理和验证 =================
+# Pydantic - 数据验证 (backend/schemas.py)
+pydantic==2.5.0
+
+# Python Multipart - 文件上传支持
+python-multipart==0.0.6
+
+# ================= 开发工具 =================
+# Python Dotenv - 环境变量管理
+python-dotenv==1.0.0
+
+# ================= 可选依赖 =================
+# Watchdog - 文件系统监控 (用于开发时的热重载)
+# watchdog==3.0.0
+
+# ================= 系统工具 =================
+# Typing Extensions - 类型提示支持
+typing-extensions==4.9.0
+
+# ================= 测试依赖 =================
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
+
+# ================= 代码质量 =================
+# black==23.11.0
+# flake8==6.1.0
+# mypy==1.7.0

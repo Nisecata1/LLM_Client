@@ -33,7 +33,15 @@ DEFAULT_HISTORY_FILE_NAME = "chat_history.json"  # 默认聊天记录名
 # 这里只定义"默认"路径字符串，不要在这里做 path join 计算或 makedirs，具体的路径计算逻辑移交给 storage.py 或 main.py 初始化阶段
 DEFAULT_BASE_HISTORY_DIR = r"/mnt/c/Users/laplas/OneDrive/Laplas_OneDrive/Develop_Code_OneDrive/AI_Memory"  # 聊天记录保存路径 (WSL 挂载 Windows OneDrive)，拆分路径配置是为了方便扫描文件夹
 
-# # 获取当前聊天记录的存储路径，并确保该目录存在
-# HISTORY_DIR = f.get_history_dir()
-# os.makedirs(HISTORY_DIR, exist_ok=True)
+# ================= 工具箱配置 =================
+# 定义源文件夹列表 (你原来的所有项目路径都可以放这里)
+SOURCE_CODE_DIRS = [
+    r"/home/laplas/my_ai_project/LLM_client_app/src/",
+    r"/home/laplas/my_ai_project/LLM_client_app/",
+    # r"C:\Users\laplas\OneDrive\MyProject\Another_Project",  # 可以无限添加
+]
+
+# 定义默认的输出目标文件夹 (如果不指定，脚本会自动在源文件夹下建子文件夹，但指定一个汇总文件夹更方便)
+DEFAULT_EXPORT_DIR = r"/mnt/c/Users/laplas/OneDrive/Laplas_OneDrive/Develop_Code_OneDrive/script_output_files"
+
     
