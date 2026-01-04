@@ -1,20 +1,39 @@
+import os
+import sys
 import uvicorn
 from fastapi import FastAPI
-# 导入刚才写好的路由模块（相当于把子模块的代码加载进内存）
-from tools_router import router as tools_router
 
 
-# Socket 绑定与事件循环：这是程序的入口。在 408 计算机网络 (传输层) 和 操作系统 (进程管理) 中，这里发生了最多的事情。
+# =================================================================
+# 知识点：修改 sys.path
+# =================================================================
+# Python 解释器在运行时，维护了一个变量 sys.path，它是一个列表，
+# 里面存着所有“库文件”的搜索路径（类似于 Linux 的 $PATH 环境变量，或者 ld.so.conf）。
+# 问题：你的 `src` 文件夹在 `backend` 的上一级。默认情况下，Python 只能看到当前目录。
+# 解决：我们需要手动把“上一级目录”加入到这个搜索列表中。
+# 1. os.path.abspath(__file__): 获取当前代码文件在硬盘上的绝对路径 (e.g., /home/user/project/backend/tools_router.py)
+# 2. os.path.dirname(...): 去掉文件名，拿到目录 (e.g., /home/user/project/backend)
+# 3. os.path.dirname(...): 再去一次目录，拿到上一级 (e.g., /home/user/project) —— 这就是项目根目录！
+# 4. sys.path.append(...): 把这个根目录的地址，压入 sys.path 列表的末尾。
+# 将项目根目录加入 sys.path，否则后端找不到 'shared' 或 'backend' 模块
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+# 导入路由模块（相当于把子模块的代码加载进内存）
+from backend.routers import tools_router, chat_router
 
 # 初始化 App 对象: 这就像是创建了一个“服务器进程”的主控制块 (PCB 的概念延伸)。
 app = FastAPI(title="我的 AI 工具箱后端")
 
-# 路由注册：注册刚才写的路由。
-# 原理：把 tools_router 里的路由表，合并到主路由表中。
-# prefix="/api/tools": 这是一个命名空间。
-# 以后访问必须加这个前缀，类似于文件系统的目录层级。
+# 注册路由（路由聚合）
+# 原理：有点像路由聚合，把多个路由表合并到主路由表中。
+# 以后遇到"/api/tools"，给到 tools_router.router 处理。
+# 以后遇到"/api/chat"，给到 chat_router.router 处理。
 app.include_router(tools_router, prefix="/api/tools", tags=["工具箱"])
-
+app.include_router(chat_router.router, prefix="/api/chat", tags=["聊天"]) 
+# 它的意义在于命名空间隔离：防止冲突。
+# 比如聊天模块也有个 `/status` 接口，工具模块也有个 `/status` 接口
+# 加上前缀变成了 `/api/chat/status` 和 `/api/tools/status`，完美避开。
 
 # 心跳检测接口
 @app.get("/")  # 装饰器逻辑：给下面这个函数绑定一个 HTTP GET 路由，路径是 "/"

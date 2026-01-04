@@ -1,7 +1,0 @@
-# AI 助手项目 - 最小依赖 (生产环境)
-streamlit>=1.28.0
-fastapi>=0.104.0
-uvicorn>=0.24.0
-openai>=1.12.0
-pydantic>=2.0.0
-python-multipart>=0.0.6
