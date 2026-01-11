@@ -6,88 +6,13 @@ import streamlit as st
 # 自己的库
 import shared.constants as const
 from backend.core import storage  # 导入 storage 模块
-import frontend.handlers.file_handler as file_handler
+import frontend.handlers.session_handler as session_handler
 import frontend.api_client as api
 import frontend.handlers.chat_handler as ui
 
 # 所有ui组件的定义
 # 用于收集侧边栏的所有ui参数的逻辑, 以及用户输入框的参数收集
 # 每个ui参数绑定一个回调函数, 每次参数变动时，都会触发回调函数：同步更新内存，即前端UI
-
-
-def user_input():
-    # 创建两列，左边放个小的回形针按钮，右边留空
-    col_upload, col_space = st.columns([1, 8]) 
-
-
-    with col_upload:
-        # 变成一个气泡菜单，图标是回形针
-        with st.popover("📎", help="上传图片"):
-            uploaded_file = st.file_uploader("选择图片", type=["png", "jpg", "jpeg"], key="img_uploader")
-
-    # st.chat_input 类似于 input()，但它同时构建了整个 Web 的交互循环
-    is_pending = st.session_state.get("request_pending", False)
-    if user_input := st.chat_input("Shift+Enter 换行...输入你的问题...", disabled=is_pending):  
-        print(f"🕵️ [DEBUG] ✅ 用户输入了: {user_input[:20]}...")
-
-        # # --- 渲染用户输入进对话框 ---
-        # with st.chat_message("user"):
-        #     st.markdown(user_input)
-        # st.session_state.messages.append({"role": "user", "content": user_input})  # 同时append进内存
-
-        # 1. 构造基础消息
-        new_msg = {"role": "user", "content": []}
-        
-        # 2. 如果有图，模式切换为 List
-        if uploaded_file:
-            print(f"🕵️ [DEBUG] 检测到图片上传，正在转码...")
-
-            # 从 Streamlit 上传对象中获取字节和 MIME 类型
-            bytes_data = uploaded_file.getvalue()
-            mime_type = uploaded_file.type
-            base64_img = storage.base64_encode_image(bytes_data, mime_type)
-            # 写入图片
-            new_msg["content"].append({
-                "type": "image_url",
-                "image_url": {"url": base64_img}
-            })
-            # 写入文本 (必须显式 append)
-            new_msg["content"].append({
-                "type": "text", 
-                "text": user_input
-            })
-
-        else:  # 如果没图，保持纯文本字符串 (兼容旧模式)
-            new_msg["content"] = user_input 
-
-        # 兼容性处理：如果没图，有些模型库可能喜欢纯字符串，但 OpenAI 官方库支持 List[dict]
-        # 如果为了保险，可以判断：
-        if not uploaded_file:
-            new_msg["content"] = user_input # 回退到纯字符串模式，最安全
-
-        # 4. 消息追加到内存 session 并显示
-        st.session_state.messages.append(new_msg)
-        print(f"🕵️ [DEBUG] 消息已存入内存 Session...")
-
-        # st.rerun() # 强制刷新，脚本会重新从第1行执行
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -98,26 +23,25 @@ def render_sidebar(current_mode):
     """
     根据 current_mode (chat 或 tools) 渲染不同的侧边栏
     """
-
     with st.sidebar:  # [侧边栏容器] with 语句创建了一个上下文环境，里面的组件渲染在 <aside> 侧边栏里
-        
         st.header("⚙️控制台")
 
         if current_mode == "chat":  # 路径设置放哪里都行，或者只放在 chat 里
             st.caption("当前模式：AI 对话")
-            # ============= 存档路径管理 (无需改代码即可修改) ==============
+
+            # ===== 存档路径管理 (无需改代码即可修改) =====
             # 创建一个下拉菜单
             with st.expander("📁 存档路径管理", expanded=False):  
-                current_dir = file_handler.get_history_dir() # 获取当前存储路径
+                current_dir = session_handler.get_history_dir() # 获取当前存储路径
                 # 为输入框在session_state里的值绑定一个key，用户修改时会自动更新
                 st.text_input("数据存储路径", value=current_dir, key="ui_file_path") 
                 if st.button("更新路径"):  # 当用户点击按钮时
-                    file_handler.save_app_config(st.session_state.ui_file_path)  # IO: 将用户输入的路径保存到配置文件
+                    session_handler.save_app_config(st.session_state.ui_file_path)  # IO: 将用户输入的路径保存到配置文件
                     st.success("路径已更新，正在刷新...")
                     time.sleep(1)
                     st.rerun() 
 
-            # =================== 存档切换 ===================
+            # ==== 存档切换 =====
             st.header("📂 存档与记忆")
 
             # 扫描文件夹，all_files对象接收并排序
@@ -158,7 +82,7 @@ def render_sidebar(current_mode):
                 "meta" in st.session_state
             ):
                 # 1. 自动保存旧档案 (Auto-Save)
-                file_handler.save_history()
+                session_handler.save_history()
                 # 此时硬盘里的旧文件已经更新了参数和聊天记录
 
             # --- 加载新存档逻辑 ---
@@ -168,7 +92,7 @@ def render_sidebar(current_mode):
                 "meta" not in st.session_state                      # 情况3：元数据意外丢失（防御性编程）
             ):  # 需要加载，进入加载逻辑
                 # 读 current_file_path （IO 操作）
-                meta, msgs = file_handler.load_history(current_file_path)
+                meta, msgs = session_handler.load_history(current_file_path)
                 st.session_state.messages = msgs  # 全部更新进后端 Session_state (真正的数据)
                 st.session_state.meta = meta  
                 st.session_state.file_path  = current_file_path
@@ -198,7 +122,8 @@ def render_sidebar(current_mode):
                 "System Prompt", 
                 height=150, 
                 key="ui_prompt",   # 给 session_state 里更新的东西一个key, 以便后续能读取
-                on_change=file_handler.sync_ui_to_meta  # 绑定回调函数
+                # 绑定回调函数，该函数更新内存 Session_state
+                on_change=session_handler.sync_ui_to_meta
             )
             
             # 2. Model
@@ -206,7 +131,7 @@ def render_sidebar(current_mode):
                 "Model", 
                 const.MODEL_NAME_LIST, 
                 key="ui_model",
-                on_change=file_handler.sync_ui_to_meta
+                on_change=session_handler.sync_ui_to_meta
             )
             
             # 3. History Len (绑定回调)
@@ -217,10 +142,10 @@ def render_sidebar(current_mode):
                 value=st.session_state.get("ui_history_len", 10), 
                 step=1, 
                 key="ui_history_len",
-                on_change=file_handler.sync_ui_to_meta
+                on_change=session_handler.sync_ui_to_meta
             )
 
-            # 4. Gemini 3 Features
+            # 4. Gemini 3 Features button
             with st.expander("💎 Gemini 3 Advanced", expanded=True):
                 saved_params = st.session_state.get("gemini_params", {})  # 获取之前的设置 (默认 high)
                 saved_val = saved_params.get("thinking_level", "high") 
@@ -235,7 +160,7 @@ def render_sidebar(current_mode):
                     options=["Low", "Medium", "High"], # 纯英文，简单明了
                     value=default_ui_val,
                     key="ui_thinking", # 绑定 Key
-                    on_change=file_handler.sync_ui_to_meta # 绑定回调
+                    on_change=session_handler.sync_ui_to_meta # 绑定回调
                 )
 
                 # Google Search
@@ -248,6 +173,7 @@ def render_sidebar(current_mode):
                 "thinking_level": current_thinking_ui.lower() # High -> high
             }
 
+            # 手动更新内存
             # 这一步是为了确保即便没有触发on_change，meta也是最新的
             st.session_state.meta.update({
                 "system_prompt": st.session_state.ui_prompt,
@@ -257,20 +183,28 @@ def render_sidebar(current_mode):
             })
 
 
-            # ========== 保存配置按钮 ===========
             st.markdown("---")
+            # 手动保存配置、归档功能按钮
             col1, col2 = st.columns(2)
-            
             with col1:
-                # 手动保存配置按钮
                 if st.button("💾 保存参数", use_container_width=True):
-                    file_handler.save_history()
-            
+                    session_handler.save_history()
             with col2:
-                # 归档功能按钮
                 # 参数：args=(current_file_path,)这里的 args 必须是 Iterable (可迭代对象)用于把当前的路径传给回调函数
-                st.button("💾 归档并开启新对话", on_click=ui.archive_current_chat, args=(current_file_path,), use_container_width=True)
+                st.button(
+                    "归档并开启新对话", 
+                    on_click=ui.archive_current_chat, 
+                    args=(current_file_path,), 
+                    use_container_width=True
+                    )
 
+
+
+
+
+
+
+        # =================== 工具箱 ===================
         elif current_mode == "tools":
             st.caption("当前模式：开发者工具箱")
             st.info("在这里配置工具箱的全局参数")
@@ -287,66 +221,3 @@ def render_sidebar(current_mode):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# 增加一个 render_toolbox 函数，负责渲染工具箱的界面。
-def render_toolbox():
-    """渲染工具箱 Tab 的界面"""
-    st.header("🛠️ 开发者工具箱")
-    
-    tool_option = st.radio("选择工具", 
-        [
-            "Py 转 Txt (批量)", 
-            "其他工具..."
-        ], 
-        horizontal=True
-    )
-    st.markdown("---")
-    
-    
-    if tool_option == "Py 转 Txt (批量)":
-        st.subheader("批量源码转换")
-        st.info(f"功能：读取 `constants.py` 中配置的 {len(const.SOURCE_CODE_DIRS)} 个路径，批量转换。")
-
-
-        # 1. 显示配置列表 (只读，让用户确认)
-        with st.expander("查看配置的源文件夹列表", expanded=True):
-            st.json(const.SOURCE_CODE_DIRS)
-            # st.info(f"当前源路径:{const.SOURCE_CODE_DIRS}")
-
-        # 2. 输出路径选择
-        target_dir = st.text_input("📂 输出目标汇总路径:", value=const.DEFAULT_EXPORT_DIR)
-        
-        # 3. 执行按钮
-        if st.button("🚀 开始批量转换", type="primary"):
-            if not const.SOURCE_CODE_DIRS:
-                st.warning("请先在 `constants.py` 中配置 SOURCE_CODE_DIRS！")
-            else:
-                with st.spinner("正在通过 API 调用后端服务..."):
-                    # --- [架构演进]：不再直接调用本地函数，而是走网络请求 ---
-                    client = api.get_api_client()
-                    result = client.convert_py_to_txt(const.SOURCE_CODE_DIRS, target_dir)
-                    
-                    if result.get("status"):
-                        st.success("转换完成！")
-                        st.text_area("后端执行日志", value=result.get("message", ""), height=400)
-                    else:
-                        st.error(f"转换失败: {result.get('message', '未知错误')}")
-                        if "details" in result:
-                            with st.expander("查看错误详情"):
-                                st.code(result["details"])

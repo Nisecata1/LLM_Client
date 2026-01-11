@@ -29,7 +29,7 @@ app = FastAPI(title="我的 AI 工具箱后端")
 # 原理：有点像路由聚合，把多个路由表合并到主路由表中。
 # 以后遇到"/api/tools"，给到 tools_router.router 处理。
 # 以后遇到"/api/chat"，给到 chat_router.router 处理。
-app.include_router(tools_router, prefix="/api/tools", tags=["工具箱"])
+app.include_router(tools_router.router, prefix="/api/tools", tags=["工具箱"])
 app.include_router(chat_router.router, prefix="/api/chat", tags=["聊天"]) 
 # 它的意义在于命名空间隔离：防止冲突。
 # 比如聊天模块也有个 `/status` 接口，工具模块也有个 `/status` 接口

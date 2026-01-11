@@ -5,9 +5,12 @@ API_KEY = "sk-o1QYDOlis0gd3xDmpKyoyuCscLXDxclPDaM450tzL17XIFJy"
 # API_KEY = "sk-rtN1YRXssJKv3QtHTnAE4lpZY8AkL6bCWrpK5FsfZ9KvOGVo"  # 国产
 BASE_URL = "https://api.fate86.cn/v1"
 
+
 # ================= 支持的模型列表 =================
 MODEL_NAME_LIST = ["gemini-3-flash-preview", "gemini-2.5-pro-thinking", "deepseek-v3.2-thinking", "deepseek-chat"]
 
+# 本地后端的默认请求地址
+BACKEND_URL = "http://127.0.0.1:8000"
 
 # ================= 存档中 meta 的默认参数 =================
 DEFAULT_SYSTEM_PROMPT = """你是一只傲娇的猫娘"""  # 系统提示词 (Streamlit 允许我们在侧边栏动态修改这个内容)
@@ -35,20 +38,24 @@ INITIAL_SESSION_STATE = {
 APP_CONFIG_FILE_NAME = "app_config.json"         # 应用配置文件，该文件是一个dict格式的json文件，{"meta":{...}, "messages":[...]}, 非常重要
 DEFAULT_HISTORY_FILE_NAME = "chat_history.json"  # 默认聊天记录名
 # 这里只定义"默认"路径字符串，不要在这里做 path join 计算或 makedirs，具体的路径计算逻辑移交给 storage.py 或 main.py 初始化阶段
-DEFAULT_BASE_HISTORY_DIR = r"/mnt/c/Users/laplas/OneDrive/Laplas_OneDrive/Develop_Code_OneDrive/AI_Memory"  # 聊天记录保存路径 (WSL 挂载 Windows OneDrive)，拆分路径配置是为了方便扫描文件夹
+DEFAULT_BASE_HISTORY_DIR = r"/mnt/c/Users/laplas/OneDrive/Laplas_OneDrive/Develop_files_OneDrive/AI_Memory"  # 聊天记录保存路径 (WSL 挂载 Windows OneDrive)，拆分路径配置是为了方便扫描文件夹
 
 # ================= 工具箱配置 =================
 # 定义源文件夹列表 (你原来的所有项目路径都可以放这里)
 SOURCE_CODE_DIRS = [
-    r"/home/laplas/my_ai_project/LLM_client_app/services/",
     r"/home/laplas/my_ai_project/LLM_client_app/",
     r"/home/laplas/my_ai_project/LLM_client_app/backend/",
+    r"/home/laplas/my_ai_project/LLM_client_app/backend/core/",
+    r"/home/laplas/my_ai_project/LLM_client_app/backend/routers/",
     r"/home/laplas/my_ai_project/LLM_client_app/frontend/",
+    r"/home/laplas/my_ai_project/LLM_client_app/frontend/components/",
+    r"/home/laplas/my_ai_project/LLM_client_app/frontend/handlers/",
+    r"/home/laplas/my_ai_project/LLM_client_app/shared/",
     # r"C:\Users\laplas\OneDrive\MyProject\Another_Project",  # 可以无限添加
 ]
 
 # 定义默认的输出目标文件夹 (如果不指定，脚本会自动在源文件夹下建子文件夹，但指定一个汇总文件夹更方便)
-DEFAULT_EXPORT_DIR = r"/mnt/c/Users/laplas/OneDrive/Laplas_OneDrive/Develop_Code_OneDrive/script_output_files"
+DEFAULT_EXPORT_DIR = r"/mnt/c/Users/laplas/OneDrive/Laplas_OneDrive/Develop_files_OneDrive/script_output_files"
 
 
 # ================= AI 工具描述表 (给大模型看的 Schema) =================

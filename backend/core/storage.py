@@ -3,11 +3,6 @@ import os
 import base64
 import shared.constants as const
 
-def base64_encode_image(bytes_data, mime_type):
-    """将字节数据转换为 Base64 字符串 (不依赖 UI 框架)"""
-    base64_str = base64.b64encode(bytes_data).decode('utf-8')
-    return f"data:{mime_type};base64,{base64_str}"
-
 def get_history_dir_path():
     """获取历史记录目录路径，不依赖 UI 框架"""
     if not os.path.exists(const.APP_CONFIG_FILE_NAME):
@@ -20,7 +15,7 @@ def get_history_dir_path():
     except:
         return const.DEFAULT_BASE_HISTORY_DIR
 
-def get_app_config():
+def get_local_config():
     """获取完整的本地配置文件数据"""
     if not os.path.exists(const.APP_CONFIG_FILE_NAME):
         return {}
@@ -34,7 +29,7 @@ def save_app_config_data(config_dict_or_dir):
     """保存配置数据到文件。兼容传入字典或单一路径字符串。"""
     if isinstance(config_dict_or_dir, str):
         # 兼容旧版本调用，如果传的是字符串，认为是 history_dir
-        current_config = get_app_config()
+        current_config = get_local_config()
         current_config["history_dir"] = config_dict_or_dir
         config = current_config
     else:
@@ -51,11 +46,11 @@ def save_app_config_data(config_dict_or_dir):
 
 def get_active_archive_path():
     """从本地配置获取当前活跃的存档文件路径"""
-    return get_app_config().get("active_archive_path")
+    return get_local_config().get("active_archive_path")
 
 def set_active_archive_path(file_path):
     """设置当前活跃的存档文件路径到本地配置"""
-    config = get_app_config()
+    config = get_local_config()
     config["active_archive_path"] = file_path
     return save_app_config_data(config)
 

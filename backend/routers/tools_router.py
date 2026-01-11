@@ -1,9 +1,11 @@
 # 后端的路由逻辑
+
 from fastapi import APIRouter
-from backend.schemas import BatchConvertRequest, SearchRequest, ChatRequest
+from backend import schemas
 from backend.core import toolbox_logic  # 直接复用你现有的逻辑代码！
-from backend.core import model_tools_call_functions as tools
+from backend.core import model_tools_call_functions as tools_call
 from backend.core import chat_engine
+from backend.core import storage
 
 
 # 实例化一个路由器对象。
@@ -21,12 +23,11 @@ router = APIRouter()
 # 如果是 GET，参数通常挂在 URL 后面，长度受限且不安全。
 @router.post("/convert/py-to-txt")
     # 函数定义：这是真正的“业务处理逻辑”。
-    # “依赖注入”：request: BatchConvertRequest
-    # FastAPI 会在调用这个函数前，先读取 TCP Buffer 中的 HTTP Body 数据，塞进 BatchConvertRequest里
-    # 用 schemas 中定义的 BatchConvertRequest 模板解析好，再传给这个函数。
+    # request: BatchConvertRequest, 前者是形参名，后者是参数类型(一个class 对象)。
+    # FastAPI 会自动在调用这个函数前，先读取 TCP Buffer 中的 HTTP Body 数据
+    # 塞进用 schemas 中定义的 BatchConvertRequest 模板里解析好，再传给这个函数。如果数据不合格，直接踢走
     # BatchConvertRequest 这个类就像是一个 “安检门”。它立在函数的入口处，所有进来的数据必须经过它的扫描。
-    # 如果数据不合格，直接踢走；如果合格，它就把数据整理得整整齐齐，交给 run_conversion 函数内部的逻辑去处理
-def run_conversion(request: BatchConvertRequest):
+def run_conversion(request: schemas.BatchConvertRequest):
     """
     接收前端发来的路径列表，调用本地的转换函数。
     """
@@ -55,25 +56,10 @@ def run_conversion(request: BatchConvertRequest):
 @router.get("/time")
 def get_time():
     """获取系统当前时间"""
-    return {"time": tools.get_current_time()}
+    return {"time": tools_call.get_current_time()}
 
 @router.post("/search")
-def run_search(request: SearchRequest):
+def run_search(request: schemas.SearchRequest):
     """执行模拟联网搜索"""
-    result = tools.web_search(request.query)
+    result = tools_call.web_search(request.query)
     return {"result": result}
-
-@router.post("/chat")
-def run_chat(request: ChatRequest):
-    """
-    执行完整的对话逻辑。
-    [极简架构]：后端不再依赖请求中的 model/params，而是内部自取。
-    """
-    engine = chat_engine.get_chat_engine()
-    
-    # 转换为 dict 列表，符合 chat_engine 接口
-    messages_dict = [m.model_dump() for m in request.messages]
-    
-    # 注意：这里不再传入 request.model 等，由 run_chat 内部加载本地活跃存档配置
-    result = engine.run_chat(messages=messages_dict)
-    return result

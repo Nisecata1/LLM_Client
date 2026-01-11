@@ -4,17 +4,22 @@ from typing import List, Dict, Any, Optional
 
 from shared import constants as const
 from core import model_tools_call_functions as tools
-from core.storage import get_app_config
+from core import storage
 
 class ChatEngine:
-    def __init__(self, api_key: str = const.API_KEY, base_url: str = const.BASE_URL):
+    def __init__(
+            self, api_key: str = const.API_KEY, 
+            base_url: str = const.BASE_URL
+        ):
         self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-    def run_chat(self, 
-                 messages: List[Dict[str, Any]], 
-                 model: Optional[str] = None, 
-                 system_prompt: Optional[str] = None,
-                 params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def run_chat(
+            self, 
+            messages: List[Dict[str, Any]], 
+            model: Optional[str] = None, 
+            system_prompt: Optional[str] = None,
+            params: Optional[Dict[str, Any]] = None
+        ) -> Dict[str, Any]:
         """
         执行完整的对话逻辑，包括自动工具调用循环。
         [极简架构]：优先从活跃存档中加载 Meta 信息作为配置。
@@ -34,7 +39,7 @@ class ChatEngine:
 
         # 1. 准备请求消息
         request_messages = []
-        if system_prompt:
+        if system_prompt:  # 整合系统提示
             request_messages.append({"role": "system", "content": system_prompt})
         
         # 消息转换：确保格式符合 OpenAI SDK 要求

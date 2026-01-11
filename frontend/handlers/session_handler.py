@@ -1,3 +1,6 @@
+
+# 负责初始化 Session State（内存）和简单的文件配置读取。
+
 import json
 import os
 import time
@@ -20,7 +23,7 @@ def reset_session_state(force=False):
     智能驱动的 Session State 初始化或重置
     直接从 shared.constants.INITIAL_SESSION_STATE 获取配置，实现单点维护。
     """
-    for key, value in const.INITIAL_SESSION_STATE.items():
+    for key, value in const.INITIAL_SESSION_STATE.items():  # 循环遍历初始化配置
         if force or key not in st.session_state:  # 默认（ force = False 时）只初始化缺失的键
             st.session_state[key] = value
 
