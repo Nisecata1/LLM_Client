@@ -1,4 +1,4 @@
-
+import traceback
 from fastapi import APIRouter
 from backend import schemas
 from backend.core import toolbox_logic  # 直接复用你现有的逻辑代码！
@@ -25,5 +25,10 @@ def run_chat(request: schemas.ChatRequest):
     messages_dict = [m.model_dump() for m in request.messages]
     
     # model 等配置由 run_chat 内部通过本地活跃存档加载
-    result = engine.run_chat(messages=messages_dict)
-    return result
+    try:
+        return engine.run_chat(messages=messages_dict)
+    except Exception as e:
+        details = traceback.format_exc()
+        # 这里用 print 而不是 logging：保持项目当前风格，且便于你从启动脚本控制台直接看到栈信息
+        print(details)
+        return {"status": "error", "message": str(e), "details": details}

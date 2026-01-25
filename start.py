@@ -5,6 +5,7 @@ import os
 import requests
 
 def is_backend_running(url="http://127.0.0.1:8000/"):
+    # 请求本地接口，检查后端服务是否运行
     try:
         response = requests.get(url, timeout=2)
         return response.status_code == 200
@@ -16,9 +17,10 @@ def start_app():
     
     # 1. 启动后端 (FastAPI)
     print("📡 正在启动后端服务 (FastAPI)...")
-    backend_process = subprocess.Popen(
-        [sys.executable, "backend/main.py"],
-        stdout=subprocess.PIPE,
+    # subprocess.Popen 返回一个 subprocess.Popen 子进程对象，你叫它“句柄”也行
+    backend_process = subprocess.Popen(  # 以下是针对子进程的配置
+        [sys.executable, "backend/main.py"],  # 子进程的路径
+        stdout=subprocess.PIPE,  # 后端子进程的输出，创建子进程之后可以用backend_process.stdout读取
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,

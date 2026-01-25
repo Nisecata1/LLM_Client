@@ -3,8 +3,8 @@ from openai import OpenAI
 from typing import List, Dict, Any, Optional
 
 from shared import constants as const
-from core import model_tools_call_functions as tools
-from core import storage
+from . import model_tools_call_functions as tools
+from . import storage
 
 class ChatEngine:
     def __init__(
@@ -25,12 +25,11 @@ class ChatEngine:
         [极简架构]：优先从活跃存档中加载 Meta 信息作为配置。
         """
         # 0. 参数补全逻辑 (后端自主从活跃存档加载配置)
-        from storage import get_active_archive_path, load_history_data
-        active_path = get_active_archive_path()
+        active_path = storage.get_active_archive_path()
         
         meta = {}
         if active_path:
-            meta, _ = load_history_data(active_path)
+            meta, _ = storage.load_history_data(active_path)
         
         # 优先级：传入参数 > 存档 Meta > 常量默认值
         model = model or meta.get("model") or const.MODEL_NAME_LIST[0]
